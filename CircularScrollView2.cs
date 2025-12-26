@@ -1,14 +1,14 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
-
+using UnityEngine.EventSystems;
 /// <summary>
 /// 预制件圆形排列控制器 - 专门处理已有子物体的预制件
 /// </summary>
-public class PrefabCircleArrangement : MonoBehaviour
+public class PrefabCircleArrangement : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     [Header("圆形排列设置")]
-    [SerializeField] private float radius = 200f;           // UI使用像素单位
+    [SerializeField] private float radius = 160f;           // UI使用像素单位
     [SerializeField] private bool arrangeOnStart = true;
     [SerializeField] private float startAngle = 0f;        // 起始角度
 
@@ -17,6 +17,9 @@ public class PrefabCircleArrangement : MonoBehaviour
     [SerializeField] private float unselectedScale = 1.0f; // 未选中时的缩放
     [SerializeField] private float unselectedAlpha = 0.4f; // 未选中时的透明度
     [SerializeField] private float animationSpeed = 8f;    // 动画速度
+
+    [Header("箭头")]
+    [SerializeField] private RectTransform arrow ;    // 动画速度
 
     // 子物体信息
     private RectTransform[] childTransforms;
@@ -30,13 +33,14 @@ public class PrefabCircleArrangement : MonoBehaviour
     private Color[] targetColors;
     private Vector2[] targetPositions;
 
-
-    private float currentRotation = 0f;
+ 
     private float rotationVelocity = 0f;
     private bool isDragging = false;
     private Vector2 lastDragPosition;
 
-
+    private float detectionAngle = 30f;
+    private int current_index = 0;
+    private int last_index = 0;
     void Start()
     {
         // 初始化所有子物体
@@ -76,7 +80,7 @@ public class PrefabCircleArrangement : MonoBehaviour
 
         // 默认不选中任何物体
         //ResetAllToNormal();
-        HighlightChild(2);
+        HighlightChild(0);
     }
 
     /// <summary>
@@ -87,8 +91,9 @@ public class PrefabCircleArrangement : MonoBehaviour
         int childCount = transform.childCount;
         for (int i = 0; i < childCount; i++)
         {
-            float angle = (360f / childCount) * i + currentRotation;
+            float angle = (360f / childCount) * i;
             float radian = angle * Mathf.Deg2Rad;
+
             Vector3 position = new Vector3(Mathf.Sin(radian) * radius, Mathf.Cos(radian) * radius, 0);
             childTransforms[i].localPosition = position;
         }
@@ -106,14 +111,14 @@ public class PrefabCircleArrangement : MonoBehaviour
         // 更新所有子物体的目标状态
         for (int i = 0; i < childTransforms.Length; i++)
         {
-            Vector3 scale= Vector3.one ;
+            Vector3 scale= Vector3.one*0.6f ;
             Color color=new Color(childImages[i].color.r,
                                           childImages[i].color.g,
                                           childImages[i].color.b,
                                           0.3f);
             if (i == selectedIndex)
             {
-                scale=Vector3.one * 1.2f;
+                scale= scale * 1.2f;
                 color = new Color(childImages[i].color.r,
                                           childImages[i].color.g,
                                           childImages[i].color.b,
@@ -142,128 +147,65 @@ public class PrefabCircleArrangement : MonoBehaviour
         HighlightChild(-1);
     }
 
-    /// <summary>
-    /// 更新动画效果
-    /// </summary>
-    private void UpdateAnimation()
+    public void OnBeginDrag(PointerEventData eventData)
     {
-        if (childTransforms == null) return;
+        isDragging = true;
+        lastDragPosition = eventData.position;
+    }
 
-        float delta = Time.deltaTime * animationSpeed;
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (isDragging)
+        {
+            AngleToPosiotn(eventData.position);
+
+        }
+    }
+
+    private void AngleToPosiotn(Vector2 position)
+    {
+
+        Vector2 arrowPos = new Vector2(arrow.position.x, arrow.position.y);
+        Vector3 vectorA = position - arrowPos;
+        Vector2 dirA = new Vector2(vectorA.x, vectorA.y).normalized;
+        float currentRotation = -Vector2.SignedAngle(dirA, new Vector2(0, 1));
+        lastDragPosition = position;
+        arrow.localEulerAngles = new Vector3(0, 0, currentRotation);
+        int closestIndex = GetPointedChildIndex(currentRotation);
+        HighlightChild(closestIndex);
+        last_index = closestIndex;
+    }
+    public int GetPointedChildIndex(float currentRotation)
+    {
+        int closestIndex = -1;
+        float smallestAngleDiff = float.MaxValue;
 
         for (int i = 0; i < childTransforms.Length; i++)
         {
-            if (childTransforms[i] != null)
+            float radian = (currentRotation-90) * Mathf.Deg2Rad;
+            Vector3 arrow_vec= new Vector3(Mathf.Cos(radian),Mathf.Sin(radian) , 0);
+            Vector3 toChild = (arrow.position-childTransforms[i].position).normalized;
+            Vector3 from_Child = arrow_vec.normalized;
+            float angleDiff = Vector3.Angle(from_Child, toChild);
+            if (angleDiff <= detectionAngle && angleDiff < smallestAngleDiff)
             {
-                // 平滑过渡尺寸
-                childTransforms[i].sizeDelta = Vector2.Lerp(
-                    childTransforms[i].sizeDelta,
-                    targetSizes[i],
-                    delta
-                );
-
-                // 平滑过渡位置（如果需要的话）
-                if (childTransforms[i].anchoredPosition != targetPositions[i])
-                {
-                    childTransforms[i].anchoredPosition = Vector2.Lerp(
-                        childTransforms[i].anchoredPosition,
-                        targetPositions[i],
-                        delta
-                    );
-                }
-            }
-
-            if (childImages[i] != null)
-            {
-                // 平滑过渡颜色
-                childImages[i].color = Color.Lerp(
-                    childImages[i].color,
-                    targetColors[i],
-                    delta
-                );
+                smallestAngleDiff = angleDiff;
+                closestIndex = i;
             }
         }
+        return  closestIndex ;
     }
 
-    /// <summary>
-    /// 立即完成所有动画（无过渡）
-    /// </summary>
-    public void InstantApplyEffects()
-    {
-        for (int i = 0; i < childTransforms.Length; i++)
-        {
-            if (childTransforms[i] != null)
-            {
-                childTransforms[i].sizeDelta = targetSizes[i];
-                childTransforms[i].anchoredPosition = targetPositions[i];
-            }
+    private void AngleToIndex(int index) {
 
-            if (childImages[i] != null)
-            {
-                childImages[i].color = targetColors[i];
-            }
-        }
+        AngleToPosiotn(childTransforms[index].position);
     }
 
-    /// <summary>
-    /// 设置圆形半径并重新排列
-    /// </summary>
-    public void SetRadius(float newRadius)
+    public void OnEndDrag(PointerEventData eventData)
     {
-        radius = Mathf.Max(0, newRadius);
-        ArrangeInCircle();
-    }
-
-    /// <summary>
-    /// 设置起始角度并重新排列
-    /// </summary>
-    public void SetStartAngle(float angle)
-    {
-        startAngle = angle;
-        ArrangeInCircle();
-    }
-
-    /// <summary>
-    /// 获取当前选中的索引
-    /// </summary>
-    public int GetSelectedIndex()
-    {
-        return selectedIndex;
-    }
-
-    /// <summary>
-    /// 获取当前选中的Transform
-    /// </summary>
-    public RectTransform GetSelectedTransform()
-    {
-        if (selectedIndex >= 0 && selectedIndex < childTransforms.Length)
-        {
-            return childTransforms[selectedIndex];
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// 获取子物体数量
-    /// </summary>
-    public int GetChildCount()
-    {
-        return childTransforms != null ? childTransforms.Length : 0;
-    }
-
-    /// <summary>
-    /// 打印所有子物体信息（调试用）
-    /// </summary>
-    public void PrintChildrenInfo()
-    {
-        Debug.Log($"子物体数量: {GetChildCount()}");
-        for (int i = 0; i < GetChildCount(); i++)
-        {
-            if (childTransforms[i] != null)
-            {
-                Debug.Log($"[{i}] {childTransforms[i].name} - 位置: {childTransforms[i].anchoredPosition}");
-            }
-        }
+        isDragging = false;
+        AngleToIndex(last_index);
+ 
     }
 
     /// <summary>
