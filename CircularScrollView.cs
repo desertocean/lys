@@ -1,147 +1,251 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 using UnityEngine.EventSystems;
-
-public class CircularScrollView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+using JUTPS;
+/// <summary>
+/// 预制件圆形排列控制器 - 专门处理已有子物体的预制件
+/// </summary>
+public class PrefabCircleArrangement : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
-    [Header("基础设置")]
-    [SerializeField] private float radius = 200f; // 圆形半径
-    [SerializeField] private int itemCount = 13; // 项目数量
-    [SerializeField] private GameObject itemPrefab; // 项目预制体
+    [Header("圆形排列设置")]
+    [SerializeField] private float radius = 160f;           // UI使用像素单位
+    [SerializeField] private bool arrangeOnStart = true;
+    [SerializeField] private float startAngle = 0f;        // 起始角度
 
+    [Header("凸显效果设置")]
+    [SerializeField] private float selectedScale = 1.1f;   // 选中时的缩放
+    [SerializeField] private float unselectedScale = 1.0f; // 未选中时的缩放
+    [SerializeField] private float unselectedAlpha = 0.4f; // 未选中时的透明度
+    [SerializeField] private float animationSpeed = 8f;    // 动画速度
 
-    private List<CircularScrollItem> items = new List<CircularScrollItem>();
-    private float currentRotation = 0f;
+    [Header("箭头")]
+    [SerializeField] private RectTransform arrow ;    // 动画速度
+
+    // 子物体信息
+    private RectTransform[] childTransforms;
+    private Image[] childImages;
+    private Vector2[] originalSizes;
+    private Color[] originalColors;
+    private int selectedIndex = -1; // 当前选中的索引，-1表示没有选中
+
+    // 目标状态
+    private Vector2[] targetSizes;
+    private Color[] targetColors;
+    private Vector2[] targetPositions;
+
+ 
     private float rotationVelocity = 0f;
     private bool isDragging = false;
     private Vector2 lastDragPosition;
-    private RectTransform rectTransform;
-    private Vector2 centerOffset = new Vector2(100, 100);
 
+    private float detectionAngle = 30f;
+    private int current_index = 0;
+    private int last_index = 0;
+    private JUCharacterController player;
+
+    private JUCharacterController _character;
+
+    public JUCharacterController TPSCharacter
+    {
+        get
+        {
+            if (!_character)
+            {
+                var playerobject = GameObject.FindGameObjectWithTag("Player");
+                _character = playerobject.GetComponent<JUCharacterController>();
+            }
+            return _character;
+        }
+    }
     void Start()
     {
-        rectTransform = GetComponent<RectTransform>();
-        InitializeItems();
+        var playerobject = GameObject.FindGameObjectWithTag("Player");
+        player = playerobject.GetComponent<JUCharacterController>();
+      
+        InitializeChildren();
+
+        if (arrangeOnStart)
+        {
+            ArrangeInCircle();
+        }
     }
 
-    void InitializeItems()
+    void Update()
     {
-        // 清除旧项目
-        foreach (Transform child in transform)
-        {
-            Destroy(child.gameObject);
-        }
-        items.Clear();
-
-        // 创建新项目
-        for (int i = 0; i < itemCount; i++)
-        {
-            GameObject newItem = CreateItem(i);
-            if (i==0 || i== itemCount-1) {
-                newItem.SetActive(false);
-            }
-            CircularScrollItem scrollItem = newItem.AddComponent<CircularScrollItem>();
-            scrollItem.Initialize(i, itemCount);
-            items.Add(scrollItem);
-        }
-
-        UpdateItemPositions();
+        // 平滑过渡到目标状态
+        //UpdateAnimation();
     }
 
-    GameObject CreateItem(int index)
+    /// <summary>
+    /// 初始化子物体数组
+    /// </summary>
+    private void InitializeChildren()
     {
-        GameObject item;
+        int childCount = transform.childCount;
 
-        if (itemPrefab != null)
-        {
-            item = Instantiate(itemPrefab, transform);
-        }
-        else
-        {
-            // 创建默认圆圈项目
-            item = new GameObject($"Item_{index}");
-            item.transform.SetParent(transform, false);
+        // 初始化数组
+        childTransforms = new RectTransform[childCount];
+        childImages = new Image[childCount];
 
-            // 添加 Image 组件用于显示圆圈
-            Image image = item.AddComponent<Image>();
-            image.sprite = CreateCircleSprite();
-            image.color = Color.HSVToRGB((float)index / itemCount, 0.8f, 1f);
+        for (int i = 0; i < childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            childTransforms[i] = child.GetComponent<RectTransform>();
+            childImages[i] = child.GetComponent<Image>();
+
 
         }
 
-        return item;
+        // 默认不选中任何物体
+        //ResetAllToNormal();
+        HighlightChild(0);
     }
 
-    Sprite CreateCircleSprite()
+    /// <summary>
+    /// 将子物体排列成圆形（针对UI）
+    /// </summary>
+    public void ArrangeInCircle()
     {
-        // 创建一个简单的圆形精灵
-        Texture2D texture = new Texture2D(128, 128);
-        Color[] pixels = new Color[128 * 128];
-
-        for (int y = 0; y < 128; y++)
+        int childCount = transform.childCount;
+        for (int i = 0; i < childCount; i++)
         {
-            for (int x = 0; x < 128; x++)
-            {
-                float dx = x - 64;
-                float dy = y - 64;
-                float distance = Mathf.Sqrt(dx * dx + dy * dy);
-
-                if (distance <= 60)
-                {
-                    pixels[y * 128 + x] = Color.white;
-                }
-                else
-                {
-                    pixels[y * 128 + x] = Color.clear;
-                }
-            }
-        }
-
-        texture.SetPixels(pixels);
-        texture.Apply();
-
-        return Sprite.Create(texture, new Rect(0, 0, 128, 128), new Vector2(0.5f, 0.5f));
-    }
-
- 
-
-    void UpdateItemPositions()
-    {
-        for (int i = 0; i < items.Count; i++)
-        {
-            float angle = (360f / itemCount) * i + currentRotation;
+            float angle = (360f / childCount) * i;
             float radian = angle * Mathf.Deg2Rad;
-            Vector3 position = new Vector3(Mathf.Sin(radian) * radius+ centerOffset.x,Mathf.Cos(radian) * radius+ centerOffset.y, 0);
-            items[i].transform.localPosition = position;
+
+            Vector3 position = new Vector3(Mathf.Sin(radian) * radius, Mathf.Cos(radian) * radius, 0);
+            childTransforms[i].localPosition = position;
         }
+    }
+
+    /// <summary>
+    /// 凸显指定索引的子物体
+    /// </summary>
+    /// <param name="index">子物体索引（0开始）</param>
+    public void HighlightChild(int index)
+    {
+ 
+        selectedIndex = index;
+
+        // 更新所有子物体的目标状态
+        for (int i = 0; i < childTransforms.Length; i++)
+        {
+            Vector3 scale= Vector3.one*0.6f ;
+            Color color=new Color(childImages[i].color.r,
+                                          childImages[i].color.g,
+                                          childImages[i].color.b,
+                                          0.3f);
+            if (i == selectedIndex)
+            {
+                scale= scale * 1.2f;
+                color = new Color(childImages[i].color.r,
+                                          childImages[i].color.g,
+                                          childImages[i].color.b,
+                                          1.0f);
+            }
+ 
+            childTransforms[i].localScale = scale;
+            childImages[i].color = color;
+            foreach (Transform child in childTransforms[i])
+            {
+                child.localScale = scale;
+                child.GetComponent<Image>().color = color;
+            }
+
+        }
+
+        TPSCharacter.SwitchToItem(index);
+    }
+ 
+ 
+    /// <summary>
+    /// 重置所有子物体到正常状态
+    /// </summary>
+    private void ResetAllToNormal()
+    {
+        HighlightChild(-1);
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
         isDragging = true;
         lastDragPosition = eventData.position;
-        rotationVelocity = 0f;
     }
 
     public void OnDrag(PointerEventData eventData)
     {
         if (isDragging)
         {
-            Vector2 currentDragPosition = eventData.position;
-            Vector3 vectorA = currentDragPosition - centerOffset;
-            Vector3 vectorB = lastDragPosition - centerOffset;
-            Vector2 dirA = new Vector2(vectorA.x, vectorA.y);
-            Vector2 dirB = new Vector2(vectorB.x, vectorB.y);
-            currentRotation += Vector2.SignedAngle(dirA, dirB);
-            lastDragPosition = currentDragPosition;
-            UpdateItemPositions();
+            AngleToPosiotn(eventData.position);
+
         }
+    }
+
+    private void AngleToPosiotn(Vector2 position)
+    {
+
+        Vector2 arrowPos = new Vector2(arrow.position.x, arrow.position.y);
+        Vector3 vectorA = position - arrowPos;
+        Vector2 dirA = new Vector2(vectorA.x, vectorA.y).normalized;
+        float currentRotation = -Vector2.SignedAngle(dirA, new Vector2(0, 1));
+        lastDragPosition = position;
+        arrow.localEulerAngles = new Vector3(0, 0, currentRotation);
+        int closestIndex = GetPointedChildIndex(currentRotation);
+        HighlightChild(closestIndex);
+        last_index = closestIndex;
+    }
+    public int GetPointedChildIndex(float currentRotation)
+    {
+        int closestIndex = -1;
+        float smallestAngleDiff = float.MaxValue;
+
+        for (int i = 0; i < childTransforms.Length; i++)
+        {
+            float radian = (currentRotation-90) * Mathf.Deg2Rad;
+            Vector3 arrow_vec= new Vector3(Mathf.Cos(radian),Mathf.Sin(radian) , 0);
+            Vector3 toChild = (arrow.position-childTransforms[i].position).normalized;
+            Vector3 from_Child = arrow_vec.normalized;
+            float angleDiff = Vector3.Angle(from_Child, toChild);
+            if (angleDiff <= detectionAngle && angleDiff < smallestAngleDiff)
+            {
+                smallestAngleDiff = angleDiff;
+                closestIndex = i;
+            }
+        }
+        return  closestIndex ;
+    }
+
+    private void AngleToIndex(int index) {
+
+        AngleToPosiotn(childTransforms[index].position);
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
         isDragging = false;
-    }
+        AngleToIndex(last_index);
  
+    }
+
+    /// <summary>
+    /// 在编辑器中使用
+    /// </summary>
+#if UNITY_EDITOR
+    void OnValidate()
+    {
+        if (!Application.isPlaying)
+        {
+            // 在编辑器中预览排列
+            UnityEditor.EditorApplication.delayCall += () =>
+            {
+                if (this != null)
+                {
+                    InitializeChildren();
+                    ArrangeInCircle();
+ 
+                }
+            };
+        }
+    }
+#endif
 }
