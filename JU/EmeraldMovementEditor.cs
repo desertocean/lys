@@ -149,7 +149,7 @@ namespace EmeraldAI.Utility
 
 
 
-	    void DrawAdvancedWaypointsList()
+	    void DrawAdvancedWaypointsList(EmeraldMovement self)
 	    {
 		    for (int index = 0; index < WaypointExtendsListProp.arraySize; index++)
 		    {
@@ -187,15 +187,33 @@ namespace EmeraldAI.Utility
 
 			    SerializedProperty fireProp = AdvancedWaypointElement.FindPropertyRelative("FireAmount");
 			    fireProp.intValue = EditorGUILayout.IntField("开火数量", fireProp.intValue);
-
-			    // 删除按钮
-			    if (GUILayout.Button("删除"))
-			    {
-				    WaypointExtendsListProp.DeleteArrayElementAtIndex(index);
-			    }
-
-			    EditorGUILayout.EndVertical();
-			    EditorGUILayout.Space(5);
+                EditorGUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                // 插入按钮
+                if (index < WaypointExtendsListProp.arraySize - 1)
+                {
+                    if (GUILayout.Button(new GUIContent("插入", "Inserts a point between this point and the next point."), EditorStyles.miniButton, GUILayout.Height(18)))
+                    {
+                        Undo.RecordObject(self, "Insert Waypoint Above this Point");
+                        self.WaypointsList.Insert(index + 1, (self.WaypointsList[index] + self.WaypointsList[index + 1]) / 2f);
+                        self.WaypointExtendsList.Insert(index + 1,new WaypointExtend());
+                        CurrentWaypointIndex = index + 1;
+                        EditorUtility.SetDirty(self); 
+                        HandleUtility.Repaint();
+                    }
+                }
+                // 删除按钮
+                if (GUILayout.Button(new GUIContent("删除", "Remove this point from the waypoint list."), EditorStyles.miniButton, GUILayout.Height(18)))
+                {
+				    
+                    Undo.RecordObject(self, "Remove Point");
+                    WaypointExtendsListProp.DeleteArrayElementAtIndex(index);
+                    WaypointsListProp.DeleteArrayElementAtIndex(index);
+                    EditorUtility.SetDirty(self);
+                    HandleUtility.Repaint();
+                }
+                EditorGUILayout.EndHorizontal();
+                EditorGUILayout.EndVertical();
+                EditorGUILayout.Space(5);
 		    }
 	    }
 
@@ -330,7 +348,7 @@ namespace EmeraldAI.Utility
 
                             if (self.WaypointsList.Count > 0)
                             {
-	                            DrawAdvancedWaypointsList();  
+	                            DrawAdvancedWaypointsList(self);  
                             }
                             CustomEditorProperties.EndFoldoutWindowBox();
                         }
