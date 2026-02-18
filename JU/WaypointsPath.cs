@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+
 namespace JUTPS.AI
 {	public enum AWMoveTypes { Walk = 0, Run=1 ,Crawl=2 };
 	public enum AWPoseTypes { Stand = 0, Crouch =1 ,Lie =2 };
@@ -24,14 +25,14 @@ namespace JUTPS.AI
 	}
 	public class WaypointsPath : MonoBehaviour
     {
-	    public bool isClosed = false;
-	    public Color pathColor = Color.green;
-	    public Color selectedPointColor = Color.yellow;
-	    public Color centerHandleColor = Color.cyan;
-	    public float pointRadius = 0.5f;
-	    public bool showCenterHandle = true; // 是否显示中心控制点
+	    [HideInInspector]public bool isClosed = false;
+	    [HideInInspector]public Color pathColor = Color.green;
+	    [HideInInspector]public Color selectedPointColor = Color.yellow;
+	    [HideInInspector]public Color centerHandleColor = Color.cyan;
+	    [HideInInspector] public float pointRadius = 1f;
+	    public bool showCenterHandle = false; // 是否显示中心控制点
 	    [HideInInspector] public List<AdvanceWaypoint> AdvanceWaypointsList= new List<AdvanceWaypoint>();
- 
+	    [HideInInspector] public AdvanceWaypointObject m_AdvanceWaypointObject;
 	    private void OnDrawGizmos()
 	    {
 		    DrawPath(false);
@@ -85,11 +86,12 @@ namespace JUTPS.AI
 		private Vector3 centerPoint;
 		private Vector3[] originalPositions;
 		private Vector3 lastCenterPosition;
-		SerializedProperty AdvanceWaypointsListProp;
+		SerializedProperty AdvanceWaypointsListProp,AdvanceWaypointObjectProp;
 		void OnEnable()
 		{
 			waypointsPath = (WaypointsPath)target;
 			AdvanceWaypointsListProp= serializedObject.FindProperty("AdvanceWaypointsList");
+			AdvanceWaypointObjectProp = serializedObject.FindProperty("m_AdvanceWaypointObject");
 			UpdateCenterPoint();
 		}
 		
@@ -97,63 +99,29 @@ namespace JUTPS.AI
 		{
 			
 			DrawDefaultInspector();
-        
+			EditorGUILayout.PropertyField(AdvanceWaypointObjectProp);
 			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Path Statistics", EditorStyles.boldLabel);
-			EditorGUILayout.LabelField("Total Points", waypointsPath.AdvanceWaypointsList.Count.ToString());
-        
-			if (waypointsPath.AdvanceWaypointsList.Count >= 2)
+			if (GUILayout.Button("Import Waypoint Data") && EditorUtility.DisplayDialog("Import Waypoint Data?", "Are you sure you want to clear all of this AI's waypoints and import waypoints from the applied Waypoint Object? This process cannot be undone.", "Yes", "Cancel"))
 			{
-				float totalLength = CalculatePathLength();
-				EditorGUILayout.LabelField("Path Length", totalLength.ToString("F2"));
+				waypointsPath.AdvanceWaypointsList = new List<AdvanceWaypoint>(waypointsPath.m_AdvanceWaypointObject.AdvanceWaypointsList);
+				EditorUtility.SetDirty(waypointsPath);
 			}
-        
-			// 新增：显示中心点位置
-			if (waypointsPath.AdvanceWaypointsList.Count > 0)
-			{
-				UpdateCenterPoint();
-				EditorGUILayout.LabelField("Center Point", centerPoint.ToString());
-			}
-        
 			EditorGUILayout.Space();
-        
-			EditorGUILayout.BeginHorizontal();
-        
-			if (GUILayout.Button("Reverse Path"))
+			if (GUILayout.Button("Export Waypoint Data"))
 			{
-				Undo.RecordObject(waypointsPath, "Reverse Path");
-				waypointsPath.AdvanceWaypointsList.Reverse();
-				UpdateCenterPoint();
+				//Export all of the AI's current waypoints to a Waypoint Object so it can be imported to other AI.
+				string SavePath = EditorUtility.SaveFilePanelInProject("Save Waypoint Data", "New Waypoint Object", "asset", "Please enter a file name to save the file to");
+				if (SavePath != string.Empty)
+				{
+					var m_AdvanceWaypointObject = CreateInstance<AdvanceWaypointObject>();
+	 
+					m_AdvanceWaypointObject.AdvanceWaypointsList = new List<AdvanceWaypoint>(waypointsPath.AdvanceWaypointsList);
+					AssetDatabase.CreateAsset(m_AdvanceWaypointObject, SavePath);
+				}
+
+ 
 			}
-        
-			if (GUILayout.Button("Center on Object"))
-			{
-				CenterPathOnObject();
-			}
-        
-			EditorGUILayout.EndHorizontal();
-        
-			// 新增：整体移动控制按钮
-			EditorGUILayout.BeginHorizontal();
-        
-			if (GUILayout.Button("Center to Origin"))
-			{
-				Undo.RecordObject(waypointsPath, "Center Path to Origin");
-				Vector3 delta = Vector3.zero - centerPoint;
-				SaveOriginalPositions();
-				MoveAllPoints(delta);
-			}
-        
-			if (GUILayout.Button("Center to Object"))
-			{
-				Undo.RecordObject(waypointsPath, "Center Path to Object");
-				Vector3 delta = waypointsPath.transform.position - centerPoint;
-				SaveOriginalPositions();
-				MoveAllPoints(delta);
-			}
-        
-			EditorGUILayout.EndHorizontal();
-        
+			EditorGUILayout.Space();
 			// 新增：缩放控制
 			if (waypointsPath.AdvanceWaypointsList.Count > 0)
 			{
@@ -175,43 +143,6 @@ namespace JUTPS.AI
 				}
 				EditorGUILayout.EndHorizontal();
 			}
-        
-			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Point List", EditorStyles.boldLabel);
-        
-			for (int i = 0; i < waypointsPath.AdvanceWaypointsList.Count; i++)
-			{
-				EditorGUILayout.BeginHorizontal();
-            
-				if (GUILayout.Button("Select", GUILayout.Width(50)))
-				{
-					selectedPointIndex = i;
-					SceneView.lastActiveSceneView.Frame(
-						new Bounds(waypointsPath.AdvanceWaypointsList[i].Position, Vector3.one * 2), false);
-				}
-            
-				Vector3 newPos = EditorGUILayout.Vector3Field("", waypointsPath.AdvanceWaypointsList[i].Position);
-            
-				if (GUILayout.Button("X", GUILayout.Width(25)))
-				{
-					Undo.RecordObject(waypointsPath, "Delete Point");
-					waypointsPath.AdvanceWaypointsList.RemoveAt(i);
-					if (selectedPointIndex == i) selectedPointIndex = -1;
-					UpdateCenterPoint();
-				}
-            
-				EditorGUILayout.EndHorizontal();
-            
-				if (newPos != waypointsPath.AdvanceWaypointsList[i].Position)
-				{
-					Undo.RecordObject(waypointsPath, "Edit Point");
-					waypointsPath.AdvanceWaypointsList[i].Position = newPos;
-					UpdateCenterPoint();
-				}
-			}
-			
-			
-			EditorGUILayout.Space();
 			DrawAdvancedWaypointsList(waypointsPath);
 			EditorGUILayout.Space();
 			serializedObject.ApplyModifiedProperties();
@@ -610,12 +541,15 @@ namespace JUTPS.AI
 
 				EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
-				// 标题
-				EditorGUILayout.LabelField($"点 {index+1}", EditorStyles.boldLabel);
-
+				EditorGUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+				if (GUILayout.Button($"点 {index+1}", GUILayout.Width(50)))
+				{
  
-				EditorGUILayout.PropertyField(AdvancedWaypointElement.FindPropertyRelative("Position"), new GUIContent("位置"));
-
+					SceneView.lastActiveSceneView.Frame(
+						new Bounds(waypointsPath.AdvanceWaypointsList[index].Position, Vector3.one * 2), false);
+				}
+				EditorGUILayout.PropertyField(AdvancedWaypointElement.FindPropertyRelative("Position"), new GUIContent(" "));
+				EditorGUILayout.EndHorizontal();
 				// 移动类型下拉框（核心功能）
 				SerializedProperty moveTypeProp = AdvancedWaypointElement.FindPropertyRelative("MoveType");
 				moveTypeProp.enumValueIndex = EditorGUILayout.Popup(
