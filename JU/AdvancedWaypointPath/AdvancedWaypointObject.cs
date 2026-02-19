@@ -6,6 +6,6 @@ namespace JUTPS.AI
 {
 	public class AdvancedWaypointObject : ScriptableObject
     {
-	    public List<AdvancedWaypoint> AdvancedWaypointsList= new List<AdvancedWaypoint>();
+	    public List<WayPointsPath.AdvancedWaypoint> AdvancedWaypointsList= new List<WayPointsPath.AdvancedWaypoint>();
     }
 }
