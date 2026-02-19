@@ -99,13 +99,14 @@ namespace JUTPS.AI
 			DrawDefaultInspector();
 			EditorGUILayout.PropertyField(AdvanceWaypointObjectProp);
 			EditorGUILayout.Space();
-			if (GUILayout.Button("Import Waypoint Data") && EditorUtility.DisplayDialog("Import Waypoint Data?", "Are you sure you want to clear all of this AI's waypoints and import waypoints from the applied Waypoint Object? This process cannot be undone.", "Yes", "Cancel"))
+			EditorGUILayout.BeginHorizontal();
+			if (GUILayout.Button("Import Waypoint Data", EditorStyles.miniButton, GUILayout.Height(18)) && EditorUtility.DisplayDialog("Import Waypoint Data?", "Are you sure you want to clear all of this AI's waypoints and import waypoints from the applied Waypoint Object? This process cannot be undone.", "Yes", "Cancel"))
 			{
 				waypointsPath.AdvanceWaypointsList = new List<AdvancedWayPointsPath.AdvancedWaypoint>(waypointsPath.m_AdvanceWaypointObject.AdvancedWaypointsList);
 				EditorUtility.SetDirty(waypointsPath);
 			}
-			EditorGUILayout.Space();
-			if (GUILayout.Button("Export Waypoint Data"))
+			
+			if (GUILayout.Button("Export Waypoint Data", EditorStyles.miniButton, GUILayout.Height(18)))
 			{
 				//Export all of the AI's current waypoints to a Waypoint Object so it can be imported to other AI.
 				string SavePath = EditorUtility.SaveFilePanelInProject("Save Waypoint Data", "New Waypoint Object", "asset", "Please enter a file name to save the file to");
@@ -119,13 +120,12 @@ namespace JUTPS.AI
 
  
 			}
+			EditorGUILayout.EndHorizontal();
 			EditorGUILayout.Space();
 			// 新增：缩放控制
 			if (waypointsPath.AdvanceWaypointsList.Count > 0)
 			{
-				EditorGUILayout.Space();
-				EditorGUILayout.LabelField("Scale Path", EditorStyles.boldLabel);
-            
+ 
 				EditorGUILayout.BeginHorizontal();
 				if (GUILayout.Button("Scale 0.5x"))
 				{
@@ -142,7 +142,6 @@ namespace JUTPS.AI
 				EditorGUILayout.EndHorizontal();
 			}
 			DrawAdvancedWaypointsList(waypointsPath);
-			EditorGUILayout.Space();
 			serializedObject.ApplyModifiedProperties();
 		}
 		
@@ -514,23 +513,7 @@ namespace JUTPS.AI
 		
 		void DrawAdvancedWaypointsList(AdvancedWayPointsPath self)
 		{
-			if (GUILayout.Button("Add Waypoint"))
-			{
-				Vector3 newPoint = new Vector3(0, 0, 0);
 			
-				if (self.AdvanceWaypointsList.Count == 0)
-				{
-					newPoint = self.transform.position + Vector3.forward * (2 * 2);
-				}
-				else if (self.AdvanceWaypointsList.Count > 0)
-				{
-					newPoint = self.AdvanceWaypointsList[self.AdvanceWaypointsList.Count - 1].Position + Vector3.forward * (2 * 2);
-				}
-			
-				Undo.RecordObject(self, "Add Waypoint");
-				self.AdvanceWaypointsList.Add(new AdvancedWayPointsPath.AdvancedWaypoint(newPoint));
-				EditorUtility.SetDirty(self);
-			}
 			for (int index = 0; index < AdvanceWaypointsListProp.arraySize; index++)
 			{
 		    	
@@ -593,7 +576,24 @@ namespace JUTPS.AI
 				}
 				EditorGUILayout.EndHorizontal();
 				EditorGUILayout.EndVertical();
-				EditorGUILayout.Space(5);
+ 
+			}
+			if (GUILayout.Button("新增"))
+			{
+				Vector3 newPoint = new Vector3(0, 0, 0);
+			
+				if (self.AdvanceWaypointsList.Count == 0)
+				{
+					newPoint = self.transform.position + Vector3.forward * (2 * 2);
+				}
+				else if (self.AdvanceWaypointsList.Count > 0)
+				{
+					newPoint = self.AdvanceWaypointsList[self.AdvanceWaypointsList.Count - 1].Position + Vector3.forward * (2 * 2);
+				}
+			
+				Undo.RecordObject(self, "Add Waypoint");
+				self.AdvanceWaypointsList.Add(new AdvancedWayPointsPath.AdvancedWaypoint(newPoint));
+				EditorUtility.SetDirty(self);
 			}
 		}
 
