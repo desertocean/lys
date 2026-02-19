@@ -5,7 +5,7 @@ using UnityEditor;
 
 namespace JUTPS.AI
 {
-	public class WayPointsPath : MonoBehaviour
+	public class AdvancedWayPointsPath : MonoBehaviour
 	{	
 		
 		public enum AWMoveTypes { Walk = 0, Run=1 ,Crawl=2 };
@@ -72,13 +72,13 @@ namespace JUTPS.AI
     }
     
      
-	[CustomEditor(typeof(WayPointsPath))]
+	[CustomEditor(typeof(AdvancedWayPointsPath))]
 	public class WaypointPathEditor : Editor
 	{
 		GUIStyle FoldoutStyle;
 		private int selectedPointIndex = -1;
 		private bool showPointHandles = true;
-		private WayPointsPath waypointsPath;
+		private AdvancedWayPointsPath waypointsPath;
 		// 新增：整体移动相关的变量
 		private bool isMovingAllPoints = false;
 		private Vector3 centerPoint;
@@ -87,7 +87,7 @@ namespace JUTPS.AI
 		SerializedProperty AdvanceWaypointsListProp,AdvanceWaypointObjectProp;
 		void OnEnable()
 		{
-			waypointsPath = (WayPointsPath)target;
+			waypointsPath = (AdvancedWayPointsPath)target;
 			AdvanceWaypointsListProp= serializedObject.FindProperty("AdvanceWaypointsList");
 			AdvanceWaypointObjectProp = serializedObject.FindProperty("m_AdvanceWaypointObject");
 			UpdateCenterPoint();
@@ -101,7 +101,7 @@ namespace JUTPS.AI
 			EditorGUILayout.Space();
 			if (GUILayout.Button("Import Waypoint Data") && EditorUtility.DisplayDialog("Import Waypoint Data?", "Are you sure you want to clear all of this AI's waypoints and import waypoints from the applied Waypoint Object? This process cannot be undone.", "Yes", "Cancel"))
 			{
-				waypointsPath.AdvanceWaypointsList = new List<WayPointsPath.AdvancedWaypoint>(waypointsPath.m_AdvanceWaypointObject.AdvancedWaypointsList);
+				waypointsPath.AdvanceWaypointsList = new List<AdvancedWayPointsPath.AdvancedWaypoint>(waypointsPath.m_AdvanceWaypointObject.AdvancedWaypointsList);
 				EditorUtility.SetDirty(waypointsPath);
 			}
 			EditorGUILayout.Space();
@@ -113,7 +113,7 @@ namespace JUTPS.AI
 				{
 					var m_AdvanceWaypointObject = CreateInstance<AdvancedWaypointObject>();
 	 
-					m_AdvanceWaypointObject.AdvancedWaypointsList = new List<WayPointsPath.AdvancedWaypoint>(waypointsPath.AdvanceWaypointsList);
+					m_AdvanceWaypointObject.AdvancedWaypointsList = new List<AdvancedWayPointsPath.AdvancedWaypoint>(waypointsPath.AdvanceWaypointsList);
 					AssetDatabase.CreateAsset(m_AdvanceWaypointObject, SavePath);
 				}
 
@@ -336,7 +336,7 @@ namespace JUTPS.AI
                 
 					if (Physics.Raycast(ray, out hit))
 					{
-						waypointsPath.AdvanceWaypointsList.Add(new WayPointsPath.AdvancedWaypoint(hit.point));
+						waypointsPath.AdvanceWaypointsList.Add(new AdvancedWayPointsPath.AdvancedWaypoint(hit.point));
 					}
 					else
 					{
@@ -344,11 +344,11 @@ namespace JUTPS.AI
 						float distance;
 						if (plane.Raycast(ray, out distance))
 						{
-							waypointsPath.AdvanceWaypointsList.Add(new WayPointsPath.AdvancedWaypoint(ray.GetPoint(distance)));
+							waypointsPath.AdvanceWaypointsList.Add(new AdvancedWayPointsPath.AdvancedWaypoint(ray.GetPoint(distance)));
 						}
 						else
 						{
-							waypointsPath.AdvanceWaypointsList.Add(new WayPointsPath.AdvancedWaypoint(waypointsPath.transform.position +ray.direction * 5));
+							waypointsPath.AdvanceWaypointsList.Add(new AdvancedWayPointsPath.AdvancedWaypoint(waypointsPath.transform.position +ray.direction * 5));
 						}
 					}
                 
@@ -512,7 +512,7 @@ namespace JUTPS.AI
 		
 		
 		
-		void DrawAdvancedWaypointsList(WayPointsPath self)
+		void DrawAdvancedWaypointsList(AdvancedWayPointsPath self)
 		{
 			if (GUILayout.Button("Add Waypoint"))
 			{
@@ -528,7 +528,7 @@ namespace JUTPS.AI
 				}
 			
 				Undo.RecordObject(self, "Add Waypoint");
-				self.AdvanceWaypointsList.Add(new WayPointsPath.AdvancedWaypoint(newPoint));
+				self.AdvanceWaypointsList.Add(new AdvancedWayPointsPath.AdvancedWaypoint(newPoint));
 				EditorUtility.SetDirty(self);
 			}
 			for (int index = 0; index < AdvanceWaypointsListProp.arraySize; index++)
@@ -553,7 +553,7 @@ namespace JUTPS.AI
 				moveTypeProp.enumValueIndex = EditorGUILayout.Popup(
 					"移动类型",
 					moveTypeProp.enumValueIndex,
-					System.Enum.GetNames(typeof(WayPointsPath.AWMoveTypes))
+					System.Enum.GetNames(typeof(AdvancedWayPointsPath.AWMoveTypes))
 				);
 
 				// 姿势类型下拉框（核心功能）
@@ -561,7 +561,7 @@ namespace JUTPS.AI
 				poseTypeProp.enumValueIndex = EditorGUILayout.Popup(
 					"姿势类型",
 					poseTypeProp.enumValueIndex,
-					System.Enum.GetNames(typeof(WayPointsPath.AWPoseTypes))
+					System.Enum.GetNames(typeof(AdvancedWayPointsPath.AWPoseTypes))
 				);
 
 				// 数值输入
@@ -577,7 +577,7 @@ namespace JUTPS.AI
 					if (GUILayout.Button(new GUIContent("插入", "Inserts a point between this point and the next point."), EditorStyles.miniButton, GUILayout.Height(18)))
 					{
 						Undo.RecordObject(self, "Insert Waypoint Above this Point");
-						self.AdvanceWaypointsList.Insert(index + 1,new WayPointsPath.AdvancedWaypoint((self.AdvanceWaypointsList[index].Position + self.AdvanceWaypointsList[index + 1].Position) / 2f));
+						self.AdvanceWaypointsList.Insert(index + 1,new AdvancedWayPointsPath.AdvancedWaypoint((self.AdvanceWaypointsList[index].Position + self.AdvanceWaypointsList[index + 1].Position) / 2f));
 						EditorUtility.SetDirty(self); 
 						HandleUtility.Repaint();
 					}
@@ -587,7 +587,6 @@ namespace JUTPS.AI
 				{
 				    
 					Undo.RecordObject(self, "Remove Point");
-					AdvanceWaypointsListProp.DeleteArrayElementAtIndex(index);
 					AdvanceWaypointsListProp.DeleteArrayElementAtIndex(index);
 					EditorUtility.SetDirty(self);
 					HandleUtility.Repaint();
