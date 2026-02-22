@@ -8,8 +8,8 @@ namespace JUTPS.AI
 	public class AdvancedWayPointsPath : MonoBehaviour
 	{	
 		
-		public enum AWMoveTypes { Walk = 0, Run=1 ,Crawl=2 };
-		public enum AWPoseTypes { Stand = 0, Crouch =1 ,Lie =2 };
+		public enum AWMoveTypes { Walk = 0, Run=1,Sprint=2};
+		public enum AWPoseTypes { Stand = 0, Crouch =1 ,Lie =2};
 		[System.Serializable]
 		public class AdvancedWaypoint
 		{
