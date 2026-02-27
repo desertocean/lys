@@ -42,16 +42,20 @@ namespace JU.CharacterSystem.AI
 		private int CurrentIndex=0;
 		private float StopDistance=0.8f;
 		private AdvancedWayPointsPath.AdvancedWaypoint GetCurrentAdvancedWaypoint(Vector3 aiPosition){
+			if(CurrentIndex>= WayPointsPath.AdvanceWaypointsList.Count){
+				return null;
+			}
 			AdvancedWayPointsPath.AdvancedWaypoint AdvanceWaypoint=WayPointsPath.AdvanceWaypointsList[CurrentIndex];
 			Vector3 currentWaypoint=AdvanceWaypoint.Position;
 			float aiWaypointDistance = Vector3.Distance(aiPosition, currentWaypoint);
+			Debug.Log(CurrentIndex+" "+aiWaypointDistance);
 			if(aiWaypointDistance < StopDistance){
-				if (CurrentIndex < WayPointsPath.AdvanceWaypointsList.Count-1)
+				if (CurrentIndex < WayPointsPath.AdvanceWaypointsList.Count)
 				{   
 					CurrentIndex++;
 				} 
 			}
-			return CurrentIndex== WayPointsPath.AdvanceWaypointsList.Count?null:AdvanceWaypoint;
+			return AdvanceWaypoint;
 		}
 		private AdvancedControlData GetControlData(){
 			Vector3 AiPosition=transform.position;
@@ -82,7 +86,7 @@ namespace JU.CharacterSystem.AI
 				controlData.IsAttackPose=true;
 				controlData.MoveToDirection  = Vector3.zero;	  
 				Vector3 CharacterPosition=Target.transform.position;
-				controlData.LookToDirection =Vector3.zero; new Vector3(CharacterPosition.x,1,CharacterPosition.z);
+				controlData.LookToDirection =new Vector3(CharacterPosition.x,1,CharacterPosition.z);
 				
 			}
 		
