@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-namespace Invector
+namespace JU.CharacterSystem.AI
 {
     public static class vCapsuleHelper
     {

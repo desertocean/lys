@@ -2,7 +2,7 @@
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
-namespace Invector
+namespace JU.CharacterSystem.AI
 {
     public static class vDebug
     {

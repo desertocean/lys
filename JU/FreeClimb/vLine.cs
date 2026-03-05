@@ -1,6 +1,6 @@
 ﻿
 using UnityEngine;
-namespace Invector
+namespace JU.CharacterSystem.AI
 {
     public class vLine
     {
