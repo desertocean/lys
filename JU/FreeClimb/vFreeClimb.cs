@@ -2,27 +2,22 @@
 using System.Collections.Generic;
 using UnityEngine;
 using JUTPS;
+using UnityEngine.InputSystem;
 namespace JU.CharacterSystem.AI
 {
 	public class FreeClimb : MonoBehaviour
 	{
         #region Public variables
 
- 
-		[Tooltip("Tags of climb surfaces")]
 		public vTagMask climbSurfaceTags = new List<string>() { "FreeClimb" };
-		[Tooltip("Layer of climb surfaces")]
 		public LayerMask climbSurfaceLayers = 0;
-		[Tooltip("Layer to check obstacles when movement")]
 		public LayerMask obstacleLayers;
-
 		private JUCharacterController TPSCharacter;
 		private CapsuleCollider TPSCollider=null;
 		public LayerMask groundLayer = 1 << 0;
 		
 		public string cameraState = "Default";
 
- 
 		public string animatorStateHierarchy = "Base Layer.Actions.FreeClimb";
 
  
@@ -115,8 +110,9 @@ namespace JU.CharacterSystem.AI
 
 		protected vDragInfo dragInfo;
 		protected vDragInfo jumDragInfo;
- 
-		protected float horizontal, vertical;
+		private bool TcEnable = true;
+
+        protected float horizontal, vertical;
 		protected float oldInput = 0.1f;
 		protected float ikWeight;
 		protected float posTransition;
@@ -161,85 +157,78 @@ namespace JU.CharacterSystem.AI
 			TPSCharacter = GetComponent<JUCharacterController>();
 			TPSCollider=(CapsuleCollider)TPSCharacter.coll;
 			
-			
-			
 		}
 
 		protected virtual void Update()
 		{
-			if(!followWaypoint){
-				input = new Vector3(TPSCharacter.Inputs.MoveAxis.x*1.1f, 0, TPSCharacter.Inputs.MoveAxis.y*1.1f);
-			}else{
-				input =moveDirection;
-			}
-			
+			//if(!followWaypoint){
+			//	input = new Vector3(TPSCharacter.Inputs.MoveAxis.x*1f, 0, TPSCharacter.Inputs.MoveAxis.y*1f);
+			//}else{
+			//	input =moveDirection;
+			//}
+			float horizontal = 0;
+			float vertical = 0;
+			var keyboard = Keyboard.current;
+			if (keyboard == null) return;
+			if (keyboard.wKey.isPressed) vertical += 1;
+			if (keyboard.sKey.isPressed) vertical -= 1;
+			if (keyboard.aKey.isPressed) horizontal -= 1;
+			if (keyboard.dKey.isPressed) horizontal += 1;
+			input = new Vector3(horizontal, 0, vertical);
 			ClimbHandle();
 			ClimbUpHandle();
           
 		}
 
-
-
 		protected virtual void ClimbUpHandle()
 		{
-			if (inClimbJump || TPSCharacter.enabled || !TPSCharacter.anim || !dragInfo.inDrag) return;
+			if (inClimbJump || TcEnable || !TPSCharacter.anim || !dragInfo.inDrag) return;
 			// 
 			if (inClimbUp && !inAlingClimb)
-			{	AnimatorClipInfo[] clipInfo = TPSCharacter.anim.GetCurrentAnimatorClipInfo(0);
- 
+			{	
+				AnimatorClipInfo[] clipInfo = TPSCharacter.anim.GetCurrentAnimatorClipInfo(0);
 				if (clipInfo.Length>0 && clipInfo[0].clip.name=="ClimbUp_Fix")
 				{ 
 					if (!TPSCharacter.anim.IsInTransition(0)){
-						Debug.Log("====3=====");
 						TPSCharacter.anim.MatchTarget(upPoint + Vector3.up * 0.1f, Quaternion.Euler(0, transform.eulerAngles.y, 0), avatarTarget, new MatchTargetWeightMask(new Vector3(matchTargetX, matchTargetY, matchTargetZ), matchRotation), startNormalizeTime, targetNormalizeTime);
-
 					}
 
 					if (TPSCharacter.anim.GetCurrentAnimatorStateInfo(0).normalizedTime >= endExitTimeAnimation) {
-						Debug.Log("====4=====");
 						ExitClimb();
 					}
-					
-					//TPSCharacter.enabled = true;
-					//enabled=true;
-					//TPSCharacter.rb.useGravity=true;
-					//TP_Input.cc.StopCharacter();
-					//TP_Input.cc.ResetInputAnimatorParameters();
+					StopCharacter();
 				}
 				return;
 			}
 			CheckClimbUp();
 		}
+
+		public virtual void StopCharacter()
+		{
+			input = Vector3.zero;
+			if (!TPSCharacter.rb.isKinematic)
+				TPSCharacter.rb.velocity = Vector3.zero;
+			TPSCharacter.anim.SetFloat(TPSCharacter.AnimatorParameters.ClimbHorizontalInput, 0, 0.2f, Time.deltaTime);
+			TPSCharacter.anim.SetFloat(TPSCharacter.AnimatorParameters.ClimbVerticalInput, 0, 0.2f, Time.deltaTime);
+			TPSCharacter.anim.SetFloat("Speed", 0f);
+			TPSCharacter.anim.SetFloat("MovingTurn", 0f);
+			TPSCharacter.SetMoveInput(0, 0);
+		}
+
+
 		protected virtual void ExitClimb(bool exitOnGround = false)
 		{
-			
- 
-			//TP_Input.cc.ResetCapsule();
-			//TP_Input.cc.onActionStay.RemoveListener(OnTriggerStayEvent);
 			oldInput = Time.time;
 			dragInfo.inDrag = false;
 			dragInfo.canGo = false;
-
 			inClimbJump = false;
-			
 			TPSCharacter.IsJumping = false;
- 
 			TPSCharacter.anim.CrossFadeInFixedTime("Falling", 0.1f);
-			//TPSCharacter.anim.SetInteger(vAnimatorParameters.ActionState, 0);
 			TPSCharacter.anim.SetBool("Climbing",false);
-			TPSCharacter.anim.SetFloat("Speed",0f);
-			TPSCharacter.anim.SetFloat("MovingTurn",0f);
-
-			 
-			
 			transform.eulerAngles = new Vector3(0, transform.eulerAngles.y, 0);
-
-			//TP_Input.cc.enabled = true;
-			TPSCharacter.SetMoveInput(0,0);
 			inClimbUp = false;
-			
 			if (transform.parent != null && dragInfo.collider && dragInfo.collider.transform.parent && transform.parent == dragInfo.collider.transform.parent) transform.parent = null;
-			TPSCharacter.enabled = true;
+			TcEnable = true;
 			TPSCharacter.rb.isKinematic = false;
 			TPSCharacter.rb.useGravity=true;
 		}
@@ -248,8 +237,12 @@ namespace JU.CharacterSystem.AI
 		{
 			oldInput = Time.time;
 			//TP_Input.cc.enabled = false;
-			TPSCharacter.enabled = false;
-
+			TcEnable = false;
+			TPSCharacter.rb.useGravity=false;
+			TPSCharacter.Inputs.SetActiveInputs(false);
+			//TPSCharacter.Inputs.Movement.MoveAction.Enable();
+			//followWaypoint=true;
+			//moveDirection=new Vector3(0,0,1);
 			//TP_Input.cc.animatorStateInfos.RegisterListener();
 			//TP_Input.cc.ResetCapsule();
 			TPSCharacter.rb.isKinematic = true;
@@ -263,7 +256,7 @@ namespace JU.CharacterSystem.AI
 			TPSCharacter.anim.CrossFadeInFixedTime(climbUpConditions ? "EnterClimbGrounded" : "EnterClimbAir", 0.0f);
 			if (dragInfo.collider && dragInfo.collider.transform.parent && transform.parent != dragInfo.collider.transform.parent && !dragInfo.collider.transform.parent.gameObject.isStatic)
 				transform.parent = dragInfo.collider.transform.parent;
-			TPSCharacter.rb.useGravity=false;
+			
 			StartCoroutine(EnterClimbAlignment(climbUpConditions));
 			//onEnterClimb.Invoke();
 			//TP_Input.cc.onActionStay.AddListener(OnTriggerStayEvent);
@@ -325,7 +318,6 @@ namespace JU.CharacterSystem.AI
 		}
 		protected virtual void ClimbUp()
 		{
-			Debug.Log("=======8===========");
 			StartCoroutine(AlignClimb());
 			inClimbUp = true;
 		}
@@ -352,7 +344,7 @@ namespace JU.CharacterSystem.AI
 				transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, transition);
 				yield return null;
 			}
-			Debug.Log("==44444==========4=");
+ 
 			TPSCharacter.anim.CrossFadeInFixedTime("ClimbUpWall", 0.1f);
 			inAlingClimb = false;
 		}
@@ -364,12 +356,10 @@ namespace JU.CharacterSystem.AI
 			
 			if (!dragInfo.inDrag)
 			{   
-				//Debug.Log(handTargetPosition+" "+climbEnterMaxDistance+" "+climbSurfaceLayers);
 				if (Physics.Raycast(handTargetPosition, transform.forward, out hit, climbEnterMaxDistance, climbSurfaceLayers))
 				{
 					if (IsValidPoint(hit.normal, hit.collider.transform.gameObject.tag))
 					{ 
-					 
 						if (debugRays) Debug.DrawRay(handTargetPosition, transform.forward * climbEnterMaxDistance, Color.green);
 						dragInfo.canGo = true;
 						dragInfo.normal = hit.normal;
@@ -393,11 +383,9 @@ namespace JU.CharacterSystem.AI
 				dragInfo.position = transform.TransformPoint(hitPointLocal);
 		 
 				if (dragInfo.canGo &&  input.z > 0.1f && !dragInfo.inDrag && Time.time > (oldInput + 2f)){
-
 					EnterClimb();
-					dragInfo.inDrag=true;
+					//dragInfo.inDrag=true;
 				}
-					
 			}
 			ClimbMovement();
 		}
@@ -405,9 +393,10 @@ namespace JU.CharacterSystem.AI
 
 		protected virtual void ClimbMovement()
 		{
+			if (!dragInfo.inDrag) return;
+			if (dragInfo.collider && dragInfo.collider.transform.parent && transform.parent != dragInfo.collider.transform.parent && !dragInfo.collider.transform.parent.gameObject.isStatic) transform.parent = dragInfo.collider.transform.parent;
 			horizontal = input.x;
 			vertical = input.z;
- 
 			canMoveClimb=CheckCanMoveClimb();
 
 			if (canMoveClimb)
@@ -421,7 +410,7 @@ namespace JU.CharacterSystem.AI
 				TPSCharacter.anim.SetFloat(TPSCharacter.AnimatorParameters.ClimbHorizontalInput, 0, 0.2f, Time.deltaTime);
 				TPSCharacter.anim.SetFloat(TPSCharacter.AnimatorParameters.ClimbVerticalInput, 0, 0.2f, Time.deltaTime);
 			}
-
+             
 			if ((input.z < 0 || (inClimbJump && Mathf.Abs(input.x) < 0.1f && input.z == 0)) && Physics.Raycast(transform.position + Vector3.up * 0.1f, -Vector3.up, 0.4f, groundLayer))
 			{
 				ExitClimb(true);
@@ -429,7 +418,7 @@ namespace JU.CharacterSystem.AI
 		}
 		protected virtual void OnAnimatorMove()
 		{
-			if (TPSCharacter.enabled) return;
+			if (TcEnable) return;
 			
 			climbEnterGrounded = (TPSCharacter.anim.GetCurrentAnimatorStateInfo(0).IsName(animatorStateHierarchy + ".EnterClimbGrounded"));
 			climbEnterAir = (TPSCharacter.anim.GetCurrentAnimatorStateInfo(0).IsName(animatorStateHierarchy + ".EnterClimbAir"));
@@ -472,7 +461,7 @@ namespace JU.CharacterSystem.AI
 			}
 			var position = (dragInfo.position - transform.rotation * handTarget.localPosition) + (transform.right * root.x + transform.up * root.y);
 			Debug.DrawLine(transform.position, dragInfo.position);
-			if (input.magnitude > 0.1f)
+			//if (input.magnitude > 0.1f)
 				transform.position = Vector3.Lerp(transform.position, position, posTransition);
 		}
 		
@@ -623,7 +612,7 @@ namespace JU.CharacterSystem.AI
 		protected virtual void OnAnimatorIK()
 		{
  
-			if (TPSCharacter.enabled || inClimbJump || inClimbUp || !dragInfo.inDrag) { ikWeight = 0; return ; }
+			if (TcEnable || inClimbJump || inClimbUp || !dragInfo.inDrag) { ikWeight = 0; return ; }
 			ikWeight = Mathf.Lerp(ikWeight, enterTransition, 8f * Time.deltaTime);
 			if (ikWeight > 0)
 			{
