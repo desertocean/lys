@@ -161,20 +161,20 @@ namespace JU.CharacterSystem.AI
 
 		protected virtual void Update()
 		{
-			//if(!followWaypoint){
-			//	input = new Vector3(TPSCharacter.Inputs.MoveAxis.x*1f, 0, TPSCharacter.Inputs.MoveAxis.y*1f);
-			//}else{
-			//	input =moveDirection;
-			//}
-			float horizontal = 0;
-			float vertical = 0;
-			var keyboard = Keyboard.current;
-			if (keyboard == null) return;
-			if (keyboard.wKey.isPressed) vertical += 1;
-			if (keyboard.sKey.isPressed) vertical -= 1;
-			if (keyboard.aKey.isPressed) horizontal -= 1;
-			if (keyboard.dKey.isPressed) horizontal += 1;
-			input = new Vector3(horizontal, 0, vertical);
+			if(!followWaypoint){
+				float horizontal = 0;
+				float vertical = 0;
+				//var keyboard = Keyboard.current;
+				//if (keyboard == null) return;
+				//if (keyboard.wKey.isPressed) vertical += 1;
+				//if (keyboard.sKey.isPressed) vertical -= 1;
+				//if (keyboard.aKey.isPressed) horizontal -= 1;
+				//if (keyboard.dKey.isPressed) horizontal += 1;
+				//input = new Vector3(horizontal, 0, vertical);
+			}else{
+				input =moveDirection;
+			}
+
 			ClimbHandle();
 			ClimbUpHandle();
           
@@ -238,8 +238,8 @@ namespace JU.CharacterSystem.AI
 			oldInput = Time.time;
 			//TP_Input.cc.enabled = false;
 			TcEnable = false;
-			TPSCharacter.rb.useGravity=false;
-			TPSCharacter.Inputs.SetActiveInputs(false);
+			//TPSCharacter.rb.useGravity=false;
+			//TPSCharacter.Inputs.SetActiveInputs(false);
 			//TPSCharacter.Inputs.Movement.MoveAction.Enable();
 			//followWaypoint=true;
 			//moveDirection=new Vector3(0,0,1);
