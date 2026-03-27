@@ -228,7 +228,7 @@ namespace JUTPS
             {
                 if (WalkOnRunButton)
                 {
-                    IsRunning = false; 
+                    IsRunning = false;
                 }
                 else
                 {
@@ -358,18 +358,13 @@ namespace JUTPS
 
         #region ANIMATOR
         protected virtual void SetupDefaultLayersWeights()
-	    {
-        	
-		    //Debug.Log( LegsLayerWeight+" "+ RightArmLayerWeight+" "+  LeftArmLayerWeight+" "+  BothArmsLayerWeight+" "+  WeaponSwitchLayerWeight+" "+ ThrowStoneWeight);
+        {
 	        SetDefaultAnimatorsLayersWeight(AnimatorParameters, LegsLayerWeight, RightArmLayerWeight, LeftArmLayerWeight, BothArmsLayerWeight, WeaponSwitchLayerWeight,ThrowStoneLayerWeight);
 
             if (IsMeleeAttacking)
             {
                 return;
             }
-
-
-
 
             // >>> Firing Mode Legs Animation Weight
             bool LegMotionEnabledCondition = (FiringMode == true && IsRolling == false && IsDriving == false && DisableAllMove == false);
@@ -383,7 +378,6 @@ namespace JUTPS
             // >>> Righ Arm Layer Weight
             if (HoldableItemInUseRightHand != null)
             {
-	            
                 bool EnabledCondition = (!IsDriving && !IsRolling && !IsReloading);
 	            if(HoldableItemInUseRightHand.HoldPose == JUHoldableItem.ItemHoldingPose.Stone){
 		            LegsLayerWeight=0f;
@@ -394,7 +388,7 @@ namespace JUTPS
 		            ThrowStoneLayerWeight=1f;
 		            return;
 	            }
-	            if (HoldableItemInUseRightHand.HoldPose != JUHoldableItem.ItemHoldingPose.Free && HoldableItemInUseRightHand.HoldPose == JUHoldableItem.ItemHoldingPose.Stone)
+                if (HoldableItemInUseRightHand.HoldPose != JUHoldableItem.ItemHoldingPose.Free)
                 {
                     RightArmLayerWeight = Mathf.MoveTowards(RightArmLayerWeight, EnabledCondition ? 0.8f : 0, 2 * Time.deltaTime);
                 }
@@ -739,10 +733,11 @@ namespace JUTPS
             }
         }
         private void WieldingIKWeightController()
-        {
+	    {
+		 
             //Disable FireMode IK when isn't in FireMode
             if (FiringMode == false) FiringModeIK = false;
-
+		   
             // Hands IK
             if (IsItemEquiped)
             {
@@ -750,8 +745,12 @@ namespace JUTPS
                 SmoothRightHandPosition(25);
                 if (IsAiming)
                 {
+                	 
                     DoHandPositioningNoSmoothing();
                 }
+	            LeftHandWeightIK = 0.0f;
+	            RightHandWeightIK = 0.0f;
+	            return ;
             }
 
             //Look IK Weight Control (Head, Spine)
@@ -894,7 +893,6 @@ namespace JUTPS
                     RightHandWeightIK = Mathf.Lerp(RightHandWeightIK, 0, IKTransitionSpeed * Time.deltaTime);
                 }
             }
-
         }
         private void RefreshItemAimRotationPivot()
         {
@@ -1054,10 +1052,9 @@ namespace JUTPS
         #endregion
 
 
-        void OnAnimatorIK(int layerIndex)
-        {
+	    void OnAnimatorIK(int layerIndex)
+	    {    
             if (IsDead || InverseKinematics == false) return;
-
             //Get Original Spine Rotation
             OriginalSpineRotation = anim.GetBoneTransform(HumanBodyBones.Spine).transform.localRotation;
             //Firing Mode IK
@@ -1065,7 +1062,7 @@ namespace JUTPS
             {
                 //If you have problems with the elbow ik on your left arm, uncomment the line below
                 //LeftHandToRespectiveIKPosition(LeftHandWeightIK, LeftHandWeightIK / 1.2f);
-
+	            //Debug.Log(LeftHandWeightIK+" "+LeftHandWeightIK* LeftElbowAdjustWeight +" "+ RightHandWeightIK+" "+RightHandWeightIK * LeftElbowAdjustWeight);
                 LeftHandToRespectiveIKPosition(LeftHandWeightIK, LeftHandWeightIK * LeftElbowAdjustWeight);
                 RightHandToRespectiveIKPosition(RightHandWeightIK, RightHandWeightIK * RightElbowAdjustWeight);
 

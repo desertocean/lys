@@ -8,6 +8,7 @@ using JUTPS.PhysicsScripts;
 using JUTPS.WeaponSystem;
 using UnityEngine;
 using UnityEngine.Events;
+using System.Collections;
 
 //using JU_INPUT_SYSTEM;
 
@@ -26,10 +27,28 @@ namespace JUTPS.CharacterBrain
         private MeleeWeapon _leftHandMeleeWeaponCache;
         private MeleeWeapon _rightHandMeleeWeaponCache;
         private DriveVehicles _driveVehicles;
-
+	    
         private Quaternion ForwardOrientation;
         private Quaternion lastDirectionTransformRotation;
-
+	    private Transform rightHandBone;                // 右手骨骼
+	    private Transform leftHandBone;                 // 左手骨骼
+	    // IK目标点
+	    private Transform rightHandIKTarget;
+	    private Transform leftHandIKTarget;
+	    
+	    private float animationLength=1.2f;
+	    private float throwReleaseTime=0.9f;
+	    public float sphereRadius = 0.15f;
+ 
+	    public Vector3 rightHandPositionOffset = new Vector3(0.0f, 0f, 0.0f);
+ 
+	    public Vector3 rightHandRotationOffset = new Vector3(0f, 90f, -95f);
+ 
+	    public Vector3 leftHandPositionOffset = new Vector3(-0f, 0f, 0f);
+ 
+	    public Vector3 leftHandRotationOffset = new Vector3(0f, 90f, 95f);
+	    
+	    
         //ESSENTIALS
         public Vector3 UpDirection { get; set; }
         public Quaternion UpOrientation { get; private set; }
@@ -255,10 +274,10 @@ namespace JUTPS.CharacterBrain
         protected float BothArmsLayerWeight { get; set; }
         protected float RightArmLayerWeight { get; set; }
         protected float LeftArmLayerWeight { get; set; }
-        protected float WeaponSwitchLayerWeight { get; set; }
-	    protected float WeaponSwitchingCurrentTime { get; set; }
+	    protected float WeaponSwitchLayerWeight { get; set; }
 	    protected float ThrowStoneLayerWeight { get; set; }
-	    
+        protected float WeaponSwitchingCurrentTime { get; set; }
+
         //Hand IK Targets
         private Transform IKPositionRightHand;
         private Transform IKPositionLeftHand;
@@ -533,6 +552,8 @@ namespace JUTPS.CharacterBrain
 
         protected virtual void Start()
         {
+	        FindHandBones();
+
 
         }
 
@@ -614,35 +635,36 @@ namespace JUTPS.CharacterBrain
             return orientation;
         }
 	    public virtual void ResetDefaultLayersWeight(float Speed = 0, bool LegLayerException = false, bool RightArmLayerException = false, bool LeftArmLayerException = false, bool BothArmsLayerException = false, bool WeaponSwitchLayerException = false, bool ThrowStoneException = false)
-        {
-            if (Speed == 0)
-            {
-                if (!LegLayerException) LegsLayerWeight = 0;
-                if (!RightArmLayerException) RightArmLayerWeight = 0;
-                if (!LeftArmLayerException) LeftArmLayerWeight = 0;
-                if (!BothArmsLayerException) BothArmsLayerWeight = 0;
-	            if (!WeaponSwitchLayerException) WeaponSwitchLayerWeight = 0;
-	            if (!ThrowStoneException) ThrowStoneLayerWeight = 0;
-            }
-            else
-            {
-                if (!LegLayerException) LegsLayerWeight = Mathf.Lerp(LegsLayerWeight, 0, Speed * Time.deltaTime);
-                if (!RightArmLayerException) RightArmLayerWeight = Mathf.Lerp(RightArmLayerWeight, 0, Speed * Time.deltaTime);
-                if (!LeftArmLayerException) LeftArmLayerWeight = Mathf.Lerp(LeftArmLayerWeight, 0, Speed * Time.deltaTime);
-                if (!BothArmsLayerException) BothArmsLayerWeight = Mathf.Lerp(BothArmsLayerWeight, 0, Speed * Time.deltaTime);
-	            if (!WeaponSwitchLayerException) WeaponSwitchLayerWeight = Mathf.Lerp(WeaponSwitchLayerWeight, 0, Speed * Time.deltaTime);
-	            if (!ThrowStoneException) ThrowStoneLayerWeight = Mathf.Lerp(ThrowStoneLayerWeight, 0, Speed * Time.deltaTime);
-            }
-        }
+	    {
+		    if (Speed == 0)
+		    {
+			    if (!LegLayerException) LegsLayerWeight = 0;
+			    if (!RightArmLayerException) RightArmLayerWeight = 0;
+			    if (!LeftArmLayerException) LeftArmLayerWeight = 0;
+			    if (!BothArmsLayerException) BothArmsLayerWeight = 0;
+			    if (!WeaponSwitchLayerException) WeaponSwitchLayerWeight = 0;
+			    if (!ThrowStoneException) ThrowStoneLayerWeight = 0;
+		    }
+		    else
+		    {
+			    if (!LegLayerException) LegsLayerWeight = Mathf.Lerp(LegsLayerWeight, 0, Speed * Time.deltaTime);
+			    if (!RightArmLayerException) RightArmLayerWeight = Mathf.Lerp(RightArmLayerWeight, 0, Speed * Time.deltaTime);
+			    if (!LeftArmLayerException) LeftArmLayerWeight = Mathf.Lerp(LeftArmLayerWeight, 0, Speed * Time.deltaTime);
+			    if (!BothArmsLayerException) BothArmsLayerWeight = Mathf.Lerp(BothArmsLayerWeight, 0, Speed * Time.deltaTime);
+			    if (!WeaponSwitchLayerException) WeaponSwitchLayerWeight = Mathf.Lerp(WeaponSwitchLayerWeight, 0, Speed * Time.deltaTime);
+			    if (!ThrowStoneException) ThrowStoneLayerWeight = Mathf.Lerp(ThrowStoneLayerWeight, 0, Speed * Time.deltaTime);
+		    }
+	    }
+        
 	    public virtual void SetDefaultAnimatorsLayersWeight(JUAnimatorParameters parameters, float LegsWeight, float RightArmWeight, float LeftArmWeight, float BothArmsWeight, float WeaponSwitchWeight,float  ThrowStoneWeight)
-        {
-            anim.SetLayerWeight(parameters._LegsLayerIndex, LegsWeight);
-            anim.SetLayerWeight(parameters._RightArmLayerIndex, RightArmWeight);
-            anim.SetLayerWeight(parameters._LeftArmLayerIndex, LeftArmWeight);
-            anim.SetLayerWeight(parameters._BothArmsLayerIndex, BothArmsWeight);
-	        anim.SetLayerWeight(parameters._SwitchWeaponLayerIndex, WeaponSwitchWeight);
-	        anim.SetLayerWeight(parameters._ThrowStoneIndex, ThrowStoneWeight);
-        }
+	    {
+		    anim.SetLayerWeight(parameters._LegsLayerIndex, LegsWeight);
+		    anim.SetLayerWeight(parameters._RightArmLayerIndex, RightArmWeight);
+		    anim.SetLayerWeight(parameters._LeftArmLayerIndex, LeftArmWeight);
+		    anim.SetLayerWeight(parameters._BothArmsLayerIndex, BothArmsWeight);
+		    anim.SetLayerWeight(parameters._SwitchWeaponLayerIndex, WeaponSwitchWeight);
+		    anim.SetLayerWeight(parameters._ThrowStoneIndex, ThrowStoneWeight);
+	    }
         public Transform GetLastSpineBone()
         {
             if (anim == null) return null;
@@ -1434,6 +1456,56 @@ namespace JUTPS.CharacterBrain
         #endregion
 
         #region Character Actions Functions
+        
+        
+	    Vector3 GetHandsCenter()
+	    {
+		    if (rightHandBone != null && leftHandBone != null)
+		    {
+			    return (rightHandBone.position + leftHandBone.position) * 0.5f;
+		    }
+		    return transform.position + transform.forward * 0.5f + Vector3.up * 0.8f;
+	    }
+	    void LateUpdate()
+	    {
+		    updateThrowableItem();
+	    }
+	    private void updateThrowableItem(){
+	    	ThrowableItem item=HoldableItemInUseRightHand as ThrowableItem;
+		    if (item == null) return;
+		    Vector3 targetPos = GetHandsCenter();
+		    item.transform.position = targetPos;
+			
+		    UpdateIKTargets(item);
+	    }
+	    
+ 
+	    void FindHandBones()
+	    {
+		    if (anim != null && anim.isHuman)
+		    {
+			    if (rightHandBone == null)
+				    rightHandBone = anim.GetBoneTransform(HumanBodyBones.RightMiddleProximal);
+            
+			    if (leftHandBone == null)
+				    leftHandBone = anim.GetBoneTransform(HumanBodyBones.LeftMiddleProximal);
+            
+		    }
+	    }
+	    private void ThrowThrowableItem(ThrowableItem item){
+	    	anim.SetTrigger(item.AnimationTriggerParameterName);	
+	    	if(item.ItemName=="Stone"){
+	    	 StartCoroutine(ThrowProgressCoroutine(item));
+	    	} 
+	    }
+	    IEnumerator ThrowProgressCoroutine(ThrowableItem item)
+	    {
+		    yield return new WaitForSeconds(animationLength * throwReleaseTime);
+		    _ThrowCurrentThrowableItem();
+		    item.gameObject.active=false;
+		    yield return new WaitForSeconds(animationLength * (1 - throwReleaseTime));
+		    item.gameObject.active=true;
+	    }
         protected virtual void UseRightHandItem(bool ShotInput, bool ShotDownInput)
         {
             if (HoldableItemInUseRightHand == null) return;
@@ -1447,10 +1519,7 @@ namespace JUTPS.CharacterBrain
 
             if (HoldableItemInUseRightHand is ThrowableItem && ShotDownInput)
             {
-	            Debug.Log(LegsLayerWeight+" "+RightArmLayerWeight+" "+ LeftArmLayerWeight+" "+ BothArmsLayerWeight+" "+ WeaponSwitchLayerWeight+" "+ThrowStoneLayerWeight);
-
-	            anim.SetTrigger((HoldableItemInUseRightHand as ThrowableItem).AnimationTriggerParameterName);
- 
+	            ThrowThrowableItem((HoldableItemInUseRightHand as ThrowableItem));
                 return;
             }
 
@@ -1968,7 +2037,7 @@ namespace JUTPS.CharacterBrain
                     }
                 }
 
-	            if (LeftHandWeightIK > 0.5f) UseWeaponLeftHand(ShotInput, ShotInputDown, AimInput, AimInputDown);
+                if (RightHandWeightIK > 0.5f) UseWeaponLeftHand(ShotInput, ShotInputDown, AimInput, AimInputDown);
                 if (RightHandWeightIK > 0.5f) UseWeaponRightHand(ShotInput, ShotInputDown, AimInput, AimInputDown);
 
                 UseMeleeWeapons(MeleeWeaponAttackInputDown);
@@ -2480,6 +2549,35 @@ namespace JUTPS.CharacterBrain
             IKPositionLeftHand.rotation = LeftHandIKPositionTarget.rotation;
             IKPositionRightHand.rotation = RightHandIKPositionTarget.rotation;
         }
+	    void UpdateIKTargets(ThrowableItem item)
+	    {
+		    if ( rightHandBone == null || leftHandBone == null) return;
+		
+		    Vector3 ballCenter = item.transform.position;
+		
+		    // 右手IK
+		    Vector3 rightHandToCenter = (ballCenter - rightHandBone.position).normalized;
+		    Vector3 rightTargetPos = ballCenter - rightHandToCenter * sphereRadius;
+		    rightTargetPos += transform.TransformDirection(rightHandPositionOffset);
+ 
+		
+		    Quaternion rightBaseRotation = Quaternion.LookRotation(rightHandToCenter, Vector3.up);
+		    Quaternion rightRotationOffset = Quaternion.Euler(rightHandRotationOffset);
+		    Quaternion rightTargetRot = rightBaseRotation * rightRotationOffset;
+ 
+		    SetRightHandIKPosition(rightTargetPos, rightTargetRot);
+		    // 左手IK
+		    Vector3 leftHandToCenter = (ballCenter - leftHandBone.position).normalized;
+		    Vector3 leftTargetPos = ballCenter - leftHandToCenter * sphereRadius;
+		    leftTargetPos += transform.TransformDirection(leftHandPositionOffset);
+ 
+		
+		    Quaternion leftBaseRotation = Quaternion.LookRotation(leftHandToCenter, Vector3.up);
+		    Quaternion leftRotationOffset = Quaternion.Euler(leftHandRotationOffset);
+		    Quaternion leftTargetRot = leftBaseRotation * leftRotationOffset;
+ 
+		    SetLeftHandIKPosition(leftTargetPos,leftTargetRot);
+	    }
         public void SmoothRightHandPosition(float Speed = 8)
         {
             //Debug.Log("Left hand = " + HoldableItemInUseLeftHand);
@@ -2743,10 +2841,7 @@ namespace JUTPS.CharacterBrain
         public string ItemWieldingRightHandPoseID = "ItemWieldingRightHandPoseID";
         public string ItemWieldingLeftHandPoseID = "ItemWieldingLeftHandPoseID";
 
-	    public string ItemsWieldingIdentifier = "ItemsWieldingIdentifier";
-        
-        
-        
+        public string ItemsWieldingIdentifier = "ItemsWieldingIdentifier";
     }
 
 }
